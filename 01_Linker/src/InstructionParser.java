@@ -12,7 +12,7 @@ import java.util.*;
 public class InstructionParser {
 
     // MAX MACHINE SIZE
-    public static final int MACHINE_SIZE = 2000;
+    public static final int MACHINE_SIZE = 200;
     // Contains the input data in a string format
     private String[] dataBuffer;
     // Contains all error messages
@@ -127,6 +127,24 @@ public class InstructionParser {
         return output.toString();
     }
 
+    public boolean isGreaterThanMachineSize(int adr){
+
+        String addr = String.valueOf(adr).substring(1);
+
+        if (Integer.parseInt(addr) > MACHINE_SIZE-1)
+            return true;
+        return false;
+    }
+
+    public boolean isGreaterThanModuleSize(int module_size, int addr){
+
+        String adr = String.valueOf(addr).substring(1);
+
+        if (Integer.parseInt(adr) > module_size-1)
+            return true;
+        return false;
+    }
+
     // Use zero
     public String useZero(int ins){
 
@@ -178,14 +196,20 @@ public class InstructionParser {
                 // Putting symbol and its relative address in the symbol table
                 int relativeAddr = Integer.parseInt(dataBuffer[i + 1]) + moduleAddr.get(module_insight - 1);
 
-                if (!symbolTable.containsKey(dataBuffer[i]))
-                    symbolTable.put(dataBuffer[i],relativeAddr);
-                else
-                    error_messages += "Error: Variable " + dataBuffer[i] + " is multiply defined; first value used.\n";
+                // moduleAddr.get(module_insight - 1); is the max addr of the module]
+
+                if (relativeAddr <= moduleAddr.get(module_insight - 1)){
+                    if (!symbolTable.containsKey(dataBuffer[i]))
+                        symbolTable.put(dataBuffer[i],relativeAddr);
+                    else
+                        error_messages += "Error: Variable " + dataBuffer[i] + " is multiply defined; first value used.\n";
+                } else {
+                    error_messages += "Error: Definition of " + dataBuffer[i] + " exceeds module size; first word in module used.\n";
+                    symbolTable.put(dataBuffer[i],0 + moduleAddr.get(module_insight - 1));
+                }
 
                 // Updating symbol usage table
                 symbolUsage.put(dataBuffer[i],module_insight - 1);
-
             }
 
             i++;
@@ -290,8 +314,7 @@ public class InstructionParser {
 
                             } else if (dataBuffer[ins_idx].equals("A")){
 
-
-                                if (addr > MACHINE_SIZE*module) {
+                                if (isGreaterThanMachineSize(addr)){
                                     error_messages += "Error: Absolute address " + addr + " exceeds machine size; zero used.\n";
                                     memoryMap.add(useZero(addr));
                                 }
@@ -301,8 +324,15 @@ public class InstructionParser {
                             }
                             else if (dataBuffer[ins_idx].equals("R")){
 
-                                memoryMap.add(addr + moduleAddr.get(module));
+                                int module_size = ptext_N;
 
+                                if (isGreaterThanModuleSize(module_size, addr)) {
+                                    error_messages += "Error: Relative address " + addr + " exceeds module size; zero used.\n";
+
+                                    memoryMap.add(useZero(addr));
+                                } else {
+                                    memoryMap.add(addr + moduleAddr.get(module));
+                                }
                             }
                             else if (dataBuffer[ins_idx].equals("E")) {
 
@@ -347,7 +377,7 @@ public class InstructionParser {
 
                         if (inst_type.equals("A")){
 
-                            if (inst > MACHINE_SIZE*module) {
+                            if (isGreaterThanMachineSize(inst)){
                                 error_messages += "Error: Absolute address " + inst + " exceeds machine size; zero used.\n";
                                 memoryMap.add(useZero(inst));
                             }
@@ -362,13 +392,15 @@ public class InstructionParser {
                         }
                         else if (inst_type.equals("R")){
 
-                            if (inst > MACHINE_SIZE*module) {
+                            int module_size = ptext_N;
+
+                            if (isGreaterThanModuleSize(module_size, inst)) {
                                 error_messages += "Error: Relative address " + inst + " exceeds module size; zero used.\n";
-                                //Fix me
+
                                 memoryMap.add(useZero(inst));
-                            }
-                            else
+                            } else {
                                 memoryMap.add(inst + moduleAddr.get(module));
+                            }
                         }
 
                         i += 2;
@@ -401,10 +433,7 @@ public class InstructionParser {
         }
 
         error_messages += errors;
-
         return error_messages;
     }
 
 }
-
-
