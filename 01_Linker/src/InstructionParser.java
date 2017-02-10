@@ -14,7 +14,7 @@ public class InstructionParser {
     // MAX MACHINE SIZE
     public static final int MACHINE_SIZE = 200;
     // Contains the input data in a string format
-    private String[] dataBuffer;
+    public String[] dataBuffer;
     // Contains all error messages
     private String error_messages = "\n::Errors & Warning::\n";
     // Contains total number of modules
@@ -25,11 +25,11 @@ public class InstructionParser {
     // Holds the relative address of each module
     private HashMap<Integer, Integer> moduleAddr = new HashMap<Integer, Integer>();
     // Holds the symbols and their relative address after first pass
-    HashMap<String, Integer> symbolTable = new HashMap<String, Integer>();
+    private TreeMap<String, Integer> symbolTable = new TreeMap<String, Integer>();
     // Keep tracks of symbolUsage - Error Handling purposes
     private TreeMap<String, Integer> symbolUsage = new TreeMap<String, Integer>();
     // Contains the final Memory Map
-    ArrayList memoryMap = new ArrayList();
+    ArrayList <Integer> memoryMap = new ArrayList<Integer>();
 
     // Custom custructor to reads the input file and fill
     // Store the input data into the dataBuffer.
@@ -66,13 +66,24 @@ public class InstructionParser {
         }
     }
 
-    // Prints the key -> Value pairs of a hashmap
-    public static void printMap(HashMap mp) {
+    // Prints the key -> Value pairs of a Symbol Table
+    public void printSymbolTable() {
         System.out.println("\n::Symbol Table::");
-        Iterator it = mp.entrySet().iterator();
-        while (it.hasNext()) {
-            HashMap.Entry pair = (HashMap.Entry)it.next();
-            System.out.println(pair.getKey() + " = " + pair.getValue());
+        for (String name: symbolTable.keySet()){
+
+            String key = name.toString();
+            String value = symbolTable.get(name).toString();
+            System.out.println(key + " = " + value);
+        }
+    }
+
+    public void printModuleAddr() {
+        System.out.println("\n::Module Address Table::");
+        for (int addr: moduleAddr.keySet()){
+
+            int key = addr;
+            String value = moduleAddr.get(addr).toString();
+            System.out.println(key + " = " + value);
         }
     }
 
@@ -82,7 +93,10 @@ public class InstructionParser {
         System.out.println("::Memory Map::");
         for (Object m : memoryMap) {
             System.out.print(offset);
-            System.out.println(":   " + m);
+            if (String.valueOf(offset).length() == 1)
+                System.out.println(":    " + m);
+            else
+                System.out.println(":   " + m);
             offset++;
         }
     }
@@ -103,7 +117,7 @@ public class InstructionParser {
     }
 
     // Performs the external referencing
-    public String performExternalRef(int adr, int ins){
+    public int performExternalRef(int adr, int ins){
 
         String addr = String.valueOf(adr);
         String inst = String.valueOf(ins);
@@ -124,7 +138,7 @@ public class InstructionParser {
             l++;
         }
 
-        return output.toString();
+        return Integer.parseInt(output.toString());
     }
 
     public boolean isGreaterThanMachineSize(int adr){
@@ -146,7 +160,7 @@ public class InstructionParser {
     }
 
     // Use zero
-    public String useZero(int ins){
+    public int useZero(int ins){
 
         String addr = "000";
         String inst = String.valueOf(ins);
@@ -163,7 +177,7 @@ public class InstructionParser {
             l++;
         }
 
-        return output.toString();
+        return Integer.parseInt(output.toString());
     }
 
     /*
@@ -179,6 +193,7 @@ public class InstructionParser {
 
         while (!firstPassed){
 
+            // Found Program Text
             if (dataBuffer[i].equals("R") || dataBuffer[i].equals("E") || dataBuffer[i].equals("A") || dataBuffer[i].equals("I")){
 
                 if (modules >= moduleAddr.size()) {
@@ -191,25 +206,49 @@ public class InstructionParser {
                         module_insight++;
                     }
                 }
-            } else if(Character.isLetter(dataBuffer[i].charAt(0)) && !isUseList(i + 1)){
+            }
 
-                // Putting symbol and its relative address in the symbol table
-                int relativeAddr = Integer.parseInt(dataBuffer[i + 1]) + moduleAddr.get(module_insight - 1);
+            // Found Variable Declaration
+            else if(Character.isLetter(dataBuffer[i].charAt(0)) && !isUseList(i + 1)){
 
-                // moduleAddr.get(module_insight - 1); is the max addr of the module]
+                int num_vars = Integer.parseInt(dataBuffer[i - 1]);
+                int vars_added = 0;
+                int useListSize = Integer.parseInt(dataBuffer[i + num_vars*2]);
 
-                if (relativeAddr <= moduleAddr.get(module_insight - 1)){
-                    if (!symbolTable.containsKey(dataBuffer[i]))
-                        symbolTable.put(dataBuffer[i],relativeAddr);
-                    else
-                        error_messages += "Error: Variable " + dataBuffer[i] + " is multiply defined; first value used.\n";
-                } else {
-                    error_messages += "Error: Definition of " + dataBuffer[i] + " exceeds module size; first word in module used.\n";
-                    symbolTable.put(dataBuffer[i],0 + moduleAddr.get(module_insight - 1));
+                int j = i + num_vars*2 + 1;      // first idx of the uselist
+                int countEnds = 0;               // number of -1s
+
+                while (countEnds < useListSize){
+
+                    if (!Character.isLetter(dataBuffer[j].charAt(0)) && Integer.parseInt(dataBuffer[j]) == -1)
+                        countEnds++;
+                    j++;
                 }
 
-                // Updating symbol usage table
-                symbolUsage.put(dataBuffer[i],module_insight - 1);
+                int module_size = Integer.parseInt(dataBuffer[j]);
+
+                while (vars_added < num_vars){
+
+                    // Putting symbol and its relative address in the symbol table
+                    int relativeAddr = Integer.parseInt(dataBuffer[i + 1]) + moduleAddr.get(module_insight - 1);
+
+                    if (Integer.parseInt(dataBuffer[i + 1]) < module_size){
+                        if (!symbolTable.containsKey(dataBuffer[i]))
+                            symbolTable.put(dataBuffer[i],relativeAddr);
+                        else
+                            error_messages += "Error: Variable " + dataBuffer[i] + " is multiply defined; first value used.\n";
+                    } else {
+                        error_messages += "Error: Definition of " + dataBuffer[i] + " exceeds module size; first word in module used.\n";
+                        int firstword = Integer.parseInt(dataBuffer[i + 1]) + module_size;
+                        symbolTable.put(dataBuffer[i], firstword);
+                    }
+
+                    // Updating symbol usage table
+                    symbolUsage.put(dataBuffer[i],module_insight - 1);
+
+                    i += 2;
+                    vars_added++;
+                }
             }
 
             i++;
@@ -331,6 +370,7 @@ public class InstructionParser {
 
                                     memoryMap.add(useZero(addr));
                                 } else {
+
                                     memoryMap.add(addr + moduleAddr.get(module));
                                 }
                             }
@@ -363,49 +403,83 @@ public class InstructionParser {
             //Found an empty use list
             else if (!Character.isLetter(dataBuffer[i].charAt(0)) && Integer.parseInt(dataBuffer[i]) == 0 && adrList.contains(dataBuffer[i+2])){
 
-                    // i + 1 = number of instructions
-                    // i + 2 is the instruction type
-                    // i + 3 is the first instruction
+                // i + 1 = number of instructions
+                // i + 2 is the instruction type
+                // i + 3 is the first instruction
 
-                    int ptext_N = Integer.parseInt(dataBuffer[i + 1]);
-                    String inst_type = dataBuffer[i + 2];
-                    int ins_count = 0;
+                // i -> the number of program text instructions
+                int ptext_N = Integer.parseInt(dataBuffer[i+1]);
 
-                    while (ins_count < ptext_N){
+                // idx of instruction
+                int ins_idx = i + 2;
 
-                        int inst = Integer.parseInt(dataBuffer[i + 3]);
+                // first instruction
+                String ins = dataBuffer[ins_idx];
 
-                        if (inst_type.equals("A")){
+                // idx of the instruction
+                int ins_count = 0;
 
-                            if (isGreaterThanMachineSize(inst)){
-                                error_messages += "Error: Absolute address " + inst + " exceeds machine size; zero used.\n";
-                                memoryMap.add(useZero(inst));
-                            }
-                            else
-                                memoryMap.add(inst);
+                        /*
+                         * (1) an Immediate operand, which is unchanged;
+                         * (2) an Absolute address, which is unchanged;
+                         * (3) a Relative address, which is relocated; add module addr
+                         * (4) an External address, which is resolved. change last digits to that of the variable
+                        */
+
+                int addr;
+
+                while (ins_count < ptext_N){
+
+                    addr = Integer.parseInt(dataBuffer[ins_idx + 1]);
+
+                    if (dataBuffer[ins_idx].equals("I")){
+
+                        memoryMap.add(addr);
+
+                    } else if (dataBuffer[ins_idx].equals("A")){
+
+                        if (isGreaterThanMachineSize(addr)){
+                            error_messages += "Error: Absolute address " + addr + " exceeds machine size; zero used.\n";
+                            memoryMap.add(useZero(addr));
                         }
+                        else
+                            memoryMap.add(addr);
 
-                        else if (inst_type.equals("I")){
-
-                            memoryMap.add(inst);
-
-                        }
-                        else if (inst_type.equals("R")){
-
-                            int module_size = ptext_N;
-
-                            if (isGreaterThanModuleSize(module_size, inst)) {
-                                error_messages += "Error: Relative address " + inst + " exceeds module size; zero used.\n";
-
-                                memoryMap.add(useZero(inst));
-                            } else {
-                                memoryMap.add(inst + moduleAddr.get(module));
-                            }
-                        }
-
-                        i += 2;
-                        ins_count++;
                     }
+                    else if (dataBuffer[ins_idx].equals("R")){
+
+                        int module_size = ptext_N;
+
+                        if (isGreaterThanModuleSize(module_size, addr)) {
+                            error_messages += "Error: Relative address " + addr + " exceeds module size; zero used.\n";
+
+                            memoryMap.add(useZero(addr));
+                        } else {
+
+                            memoryMap.add(addr + moduleAddr.get(module));
+                        }
+                    }
+                    else if (dataBuffer[ins_idx].equals("E")) {
+
+                        if (symbolTable.containsKey(variableUsage.get(ins_count))){
+
+                            memoryMap.add(performExternalRef(symbolTable.get(variableUsage.get(ins_count)), addr));
+
+                            // Update symbol usage.
+                            symbolUsage.put(variableUsage.get(ins_count),-1);
+                        } else {
+                            memoryMap.add(useZero(addr));
+
+                            error_messages += "Error: " + variableUsage.get(ins_count) + " is not defined; zero used.\n";
+                        }
+                    }
+
+                    ins_idx += 2;
+                    ins_count++;
+                    i += 2;
+                }
+
+                module++;
             }
 
             i++;
@@ -422,14 +496,14 @@ public class InstructionParser {
     public String ErrorsMessageGenerator(){
 
         String errors = "";
+        for (String name: symbolUsage.keySet()){
 
-        Iterator it = symbolUsage.entrySet().iterator();
-        while (it.hasNext()) {
-            HashMap.Entry pair = (HashMap.Entry)it.next();
-            if (!pair.getValue().equals(-1)) {
-                errors += "Warning: " + pair.getKey() + " was defined in module " + pair.getValue() + " but never used.\n";
+            String key = name.toString();
+            String value = symbolUsage.get(name).toString();
+            if (Integer.parseInt(value) != -1){
+                errors += "Warning: " + key + " was defined in module " + value + " but never used.\n";
             }
-            it.remove();
+
         }
 
         error_messages += errors;
