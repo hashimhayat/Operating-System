@@ -90,7 +90,7 @@ public class InstructionParser {
     public void printMemoryMap(){
 
         int offset = 0;
-        System.out.println("::Memory Map::");
+        System.out.println("\n::Memory Map::");
         for (Object m : memoryMap) {
             System.out.print(offset);
             if (String.valueOf(offset).length() == 1)
@@ -378,13 +378,15 @@ public class InstructionParser {
 
                                 if (symbolTable.containsKey(variableUsage.get(ins_count))){
 
+                                    if (isGreaterThanModuleSize(ptext_N, addr))
+                                        addr = useZero(addr);
+
                                     memoryMap.add(performExternalRef(symbolTable.get(variableUsage.get(ins_count)), addr));
 
                                     // Update symbol usage.
                                     symbolUsage.put(variableUsage.get(ins_count),-1);
                                 } else {
                                     memoryMap.add(useZero(addr));
-
                                     error_messages += "Error: " + variableUsage.get(ins_count) + " is not defined; zero used.\n";
                                 }
                             }
@@ -462,6 +464,9 @@ public class InstructionParser {
                     else if (dataBuffer[ins_idx].equals("E")) {
 
                         if (symbolTable.containsKey(variableUsage.get(ins_count))){
+
+                            if (isGreaterThanModuleSize(ptext_N, addr))
+                                addr = useZero(addr);
 
                             memoryMap.add(performExternalRef(symbolTable.get(variableUsage.get(ins_count)), addr));
 

@@ -17,9 +17,8 @@ public class Linker extends InstructionParser {
         parser.performFirstPass();
         parser.performSecondPass();
 
-
-        parser.printMemoryMap();
         parser.printSymbolTable();
+        parser.printMemoryMap();
         //parser.printModuleAddr();
 
         System.out.println(parser.ErrorsMessageGenerator());
