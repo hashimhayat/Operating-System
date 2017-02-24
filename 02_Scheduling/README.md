@@ -1,4 +1,4 @@
-### <i class="icon-file"></i> Lab 2 - Scheduling in Java
+### <i class="icon-file"></i> Lab 2 - Scheduler in Python
 ----------
 
 ####Compiling and Running
