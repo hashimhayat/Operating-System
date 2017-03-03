@@ -6,12 +6,16 @@ Module: File Handler
 import os
 
 class Process:
-	def __init__(self,A,B,C,M):
+	def __init__(self,A,B,C,M,I):
+		self.I = I					#-> Input sequence 
 		self.A = A 					#-> Arrival time
 		self.B = B 					#-> CPU burst
 		self.C = C 					#-> Total CPU required by the job
 		self.M = M 					#-> Multiplier to find I/O burst = B x M
+		self.time = A				#-> Current time at which a process is
 		self.state = 'unstarted'	#-> State of a process
+		self.remainingBurst = 0 	#-> CPU burst left
+		self.remainingCPU = C		#-> Total CPU time remaining
 
 		# Loging Times
 		self.IO = 0
@@ -21,7 +25,7 @@ class Process:
 
 	# Returns a string representation of a process
 	def __repr__(self):
-		return '(' + str(self.A) + ' ' + str(self.B) + ' ' + str(self.C) + ' ' + str(self.M) + ')'
+		return '(' + str(self.A) + ' ' + str(self.B) + ' ' + str(self.C) + ' ' + str(self.M) + ' ' + str(self.time) + ')'
 
 class ProcessTable:
 	def __init__(self,filePath):
@@ -32,11 +36,11 @@ class ProcessTable:
 
 	# Read Jobs:
 	# Reads the job data from a file and returns the raw data as a string
-	# input: 3 (0 1 20 1) (0 1 20 1) (10 1 10 1)
+	# input: 3  0 1 5 1    0 1 5 1    3 1 5 1
 
 	def readFile(self,filePath):
 		fd = open(filePath,'r')
-		content = fd.read().strip().replace(")","").replace("(","- ").split(" - ")
+		content = fd.read().strip().replace('   ','-').replace('  ','-').split('-')
 		self.count = int(content[0])
 		self.buildStore(content,self.count)
 		
@@ -48,11 +52,13 @@ class ProcessTable:
 		
 		# go to each process (0 1 20 1)
 		# create a process and append it in the store
+		inputSeq = 1
 		for p in range(1,processes+1):
 
 			P = content[p].split(" ")	# P is a temp process
-			process = Process(int(P[0]),int(P[1]),int(P[2]),int(P[3]))
+			process = Process(int(P[0]),int(P[1]),int(P[2]),int(P[3]),inputSeq)
 			self.store.append(process)
+			inputSeq += 1
 
 		self.sortProcesses()
 
