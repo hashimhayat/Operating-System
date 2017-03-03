@@ -10,12 +10,14 @@ class Process:
 		self.A = A 					#-> Arrival time
 		self.B = B 					#-> CPU burst
 		self.C = C 					#-> Total CPU required by the job
-		self.M = M 					#-> Multiplier
+		self.M = M 					#-> Multiplier to find I/O burst = B x M
 		self.state = 'unstarted'	#-> State of a process
-		self.IO = self.B * self.M
-		self.finishTime = None
-		self.turnaroundTime = None
-		self.waitingTime = None
+
+		# Loging Times
+		self.IO = 0
+		self.finishTime = 0
+		self.turnAroundTime = 0
+		self.waitingTime = 0
 
 	# Returns a string representation of a process
 	def __repr__(self):
@@ -68,13 +70,13 @@ class ProcessTable:
 
 		if ty == 'sorted':
 			tmpList = self.sortedStore
-			result = "Sorted Processes: "
+			result = "The original input was: " + str(self.count) + " "
 		elif ty == 'unsorted':
 			tmpList = self.store
-			result = "Original Processes: "
+			result = "The (sorted) input is:  " + str(self.count) + " "
 
 		for i in range(self.count):
-			result += tmpList[i].__repr__() + "  "
+			result += tmpList[i].__repr__() + " "
 
 		return result
 
