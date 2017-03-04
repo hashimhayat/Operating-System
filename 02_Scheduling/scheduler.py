@@ -60,9 +60,7 @@ class Scheduler:
 		prevState = Process.state
 
 		# Remove the process from old state
-		if prevState != 'ready':
-			self.states[prevState].remove(Process)
-		else:
+		if prevState == 'ready':
 
 			toRemove = []
 			c = 0
@@ -79,6 +77,9 @@ class Scheduler:
 
 			for rm in range(len(toRemove)):
 				self.states['ready'].pop(rm)
+		else:
+
+			self.states[prevState].remove(Process)
 
 		# Update the state of process:
 		#  - self.state = 'unstarted'
@@ -131,7 +132,6 @@ class Scheduler:
 				self.states['ready'].append([Process])
 
 			return
-
 
 		# Enqueue it in the new state list
 		self.states[newState].append(Process)
@@ -270,7 +270,7 @@ class Scheduler:
 
 			if (self.states['blocked']):
 
-				temp = self.states['blocked'][:]
+				temp = sorted(self.states['blocked'][:], key=lambda x: x.A, reverse=False)
 				for process in temp:
 					if process not in PROCESSES:
 						process.IO -= 1
@@ -323,7 +323,7 @@ class Scheduler:
 				self.active = False
 
 
-processTable = ProcessTable("/Users/student/Desktop/input-6.txt");
+processTable = ProcessTable("/Users/student/Desktop/input-5.txt");
 print(processTable.view('sorted'))
 scheduler = Scheduler(processTable)
 scheduler.init()
