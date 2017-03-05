@@ -10,7 +10,7 @@ from processhandler import *
 
 class Scheduler:
 
-	def __init__(self, processTable, algo='fcfs'):
+	def __init__(self, processTable):
 
 		self.processTable = copy.deepcopy(processTable)
 		self.process_state = {}
@@ -22,7 +22,7 @@ class Scheduler:
 						'terminated':[]
 					}
 
-		self.algorithm = algo 			# Algorithm in use 
+		self.algorithm = 'fcfs' 		# Algorithm in use 
 		self.clock = -1					# Time at which scheduler is right now.
 		self.active = True 				# Indicates if the Scheduler is working or not
 		self.X = 0						# next random number
@@ -38,8 +38,9 @@ class Scheduler:
 		self.avgWaitingTime = 0
 
 	# Initialises the Scheduler with the specified algorithm.
-	def init(self):
+	def init(self,algo):
 
+		self.algorithm = algo
 		# Put all processes in the unstarted state
 		self.initProcesses()
 
@@ -169,7 +170,6 @@ class Scheduler:
 			p.IOtime += 1
 
 
-
 	def preparingLogOff(self):
 		self.finishTime = self.clock - 1 
 		self.avgWaitingTime = ("%.6f" % round((self.avgWaitingTime / self.processTable.count),7))
@@ -177,6 +177,7 @@ class Scheduler:
 		self.IOUtilization = ("%.6f" % round((self.IOUtilization / self.finishTime),7))
 		self.CPUutilization = ("%.6f" % round((self.CPUutilization / self.finishTime),7))
 		self.throughput = ("%.6f" % round(((self.processTable.count / self.finishTime)*100),7))
+		print(self)
 
 
 	# -------------------- Random Numbers --------------------- #
@@ -516,11 +517,12 @@ class Scheduler:
 				print("The scheduling algorithm used was " + self.algoInfo[self.algorithm] + '\n')
 				
 
+filePath = "/Users/student/Desktop/Input/input-3.txt"
 
-processTable = ProcessTable("/Users/student/Desktop/input-3.txt");
-scheduler = Scheduler(processTable,'lcfs')
-scheduler.init()
-print(scheduler)
+processTable = ProcessTable(filePath);
+scheduler = Scheduler(processTable)
+scheduler.init('lcfs')
+
 
 
 

@@ -6,12 +6,13 @@ Module: File Handler
 import os
 
 class Process:
-	def __init__(self,A,B,C,M,I):
-		self.I = I					#-> Input sequence 
+	def __init__(self,A,B,C,M):
+		self.I = 0					#-> Input sequence 
 		self.A = A 					#-> Arrival time
 		self.B = B 					#-> CPU burst
 		self.C = C 					#-> Total CPU required by the job
 		self.M = M 					#-> Multiplier to find I/O burst = B x M
+		self.Q = 0					#-> Remaining Quantum
 		self.time = A				#-> Current time at which a process is
 		self.state = 'unstarted'	#-> State of a process
 		self.remainingBurst = 0 	#-> CPU burst left
@@ -57,7 +58,8 @@ class ProcessTable:
 		for p in range(1,processes+1):
 
 			P = content[p].split(" ")	# P is a temp process
-			process = Process(int(P[0]),int(P[1]),int(P[2]),int(P[3]),inputSeq)
+			process = Process(int(P[0]),int(P[1]),int(P[2]),int(P[3]))
+			process.I = inputSeq
 			self.store.append(process)
 			inputSeq += 1
 
