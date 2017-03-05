@@ -25,7 +25,7 @@ class Process:
 
 	# Returns a string representation of a process
 	def __repr__(self):
-		return '(' + str(self.A) + ' ' + str(self.B) + ' ' + str(self.C) + ' ' + str(self.M) + ' ' + str(self.time) + ')'
+		return '(' + str(self.A) + ' ' + str(self.B) + ' ' + str(self.C) + ' ' + str(self.M) + ')'
 
 class ProcessTable:
 	def __init__(self,filePath):

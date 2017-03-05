@@ -22,11 +22,12 @@ class Scheduler:
 						'terminated':[]
 					}
 
-		self.algorithm = algo 		# Algorithm in use 
-		self.clock = -1				# Time at which scheduler is right now.
-		self.active = True 			# Indicates if the Scheduler is working or not
-		self.X = 0					# next random number
-		self.logs = ""
+		self.algorithm = algo 			# Algorithm in use 
+		self.clock = -1					# Time at which scheduler is right now.
+		self.active = True 				# Indicates if the Scheduler is working or not
+		self.X = 0						# next random number
+		self.logs = self.initLogs()		# logs that are generated at the end
+		self.algoInfo = self.algoInfo()
 
 	# Initialises the Scheduler with the specified algorithm.
 	def init(self):
@@ -51,6 +52,17 @@ class Scheduler:
 			self.states['unstarted'].append(p)
 			self.process_state[p] = 'unstarted'
 
+	def cleanReady(self):
+		toRemove = []
+		s = 0
+		for _sub in self.states['ready']:
+			if len(_sub) == 0:
+				toRemove.append(s)
+			s += 1
+
+		for rm in toRemove:
+			self.states['ready'].pop(rm)
+
 	# Updates the state of a process (P).
 	# Adding a process to the scheduler is also updation
 	# so the same function can be used
@@ -62,31 +74,15 @@ class Scheduler:
 		# Remove the process from old state
 		if prevState == 'ready':
 
-			toRemove = []
-			c = 0
 			for sub in self.states['ready']:
-
 				for p in range(len(sub)):
 					if Process == sub[p]:
-						sub.remove(Process)
+						sub.remove(sub[p])
 						break
-
-				if not sub:
-					toRemove.append(c)
-				c += 1
-
-			for rm in range(len(toRemove)):
-				self.states['ready'].pop(rm)
+			self.cleanReady()
+			
 		else:
-
 			self.states[prevState].remove(Process)
-
-		# Update the state of process:
-		#  - self.state = 'unstarted'
-		#  - self.IO = 0
-		#  - self.finishTime = 0
-		#  - self.turnAroundTime = 0
-		#  - self.waitingTime = 0
 
 		Process.state = newState
 		Process.time = self.clock
@@ -178,17 +174,30 @@ class Scheduler:
 
 		return logs
 
+	def initLogs(self):
+		logs = self.processTable.view('unsorted') + '\n' + self.processTable.view('sorted') + '\n'
+		logs += "\nThis detailed printout gives the state and remaining burst for each process \n\n"
+		return logs
+
+	def generateLogs(self):
+		self.logs += "Before cycle " + ' '* (4 - len(str(self.clock + 1))) + str(self.clock + 1) + ': '
+		for process in self.processTable.sortedStore:
+			burstRemaining = process.remainingBurst if process.state == 'running' else process.IO
+			self.logs += ' ' * (11 - len(process.state)) + process.state + '  ' + str(burstRemaining)
+		self.logs += '.\n'
+
+
+	def algoInfo(self):
+		return {'lcfs':'Last Come First Served','fcfs':'First Come First Served','roundrobin':'Round Robin','pjfs':'Preemptive Shortest Job First'}
+
 	# String Representation of the Scheduler
 	def __repr__(self):
 		#return self.createLogs(self.processTable)
-		return self.logs
+		return self.logs + "The scheduling algorithm used was " + self.algoInfo[self.algorithm] + '\n'
 
 # -------------------------- LAST COME FIRST SERVE ----------------------------
 
 	def LCFS(self):
-
-		self.logs = "\nThis detailed printout gives the state and remaining burst for each process \nLCFS\n"
-		spaces = {'unstarted':'   ', 'running':'     ','ready':'       ','blocked':'     ', 'terminated':' '}
 
 		while (self.active):
 
@@ -228,8 +237,7 @@ class Scheduler:
 
 			if (self.states['blocked']):
 
-				#temp = sorted(self.states['blocked'][:], key=lambda x: x, reverse=True)
-				temp = self.states['blocked'][:]
+				temp = sorted(self.states['blocked'][:], key=lambda x: x.I, reverse=True)
 				for process in temp:
 					if process not in PROCESSES:
 						process.IO -= 1
@@ -240,53 +248,6 @@ class Scheduler:
 							else:
 								self.updateState(process, 'ready')
 							PROCESSES.append(process)
-
-			# -------------------- READY PROCESSES --------------------- #		
-
-			# If a process is in ready state 
-				# increment the waitingtime of the process
-				# if the running is empty put the process X in the running state
-				# Finding process X:
-					# first one in the queue if its arrival time in the ready state is unique and earliest
-					# if more than one processes arrived at the same time, use tie breaker
-
-			# Break Ties
-				# These ties are broken
-				# by favoring the process with the earliest arrival time A. 
-				# If the arrival times are the same for two processes with the same priority, 
-				# then favor the process that is listed earliest in the input. 
-
-			if (self.states['ready']):
-				# TODO: update waiting time
-
-				processToRun = None
-
-				to_pop = len(self.states['ready']) - 1
-
-					# [[p],[p,p],[p],[p]]
-				if len(self.states['ready'][to_pop]) == 1:
-					processToRun = self.states['ready'][to_pop][0]
-
-				else:
-					# [[p,p],[p],[p,p]]
-					subList = self.states['ready'][to_pop][:]
-
-					# favoring the process with the earliest arrival time A. 
-					sortedByArrival = sorted(subList, key=lambda x: x.A, reverse=False)
-					smallest = sortedByArrival[0].A
-					all_smallest = [element for index, element in enumerate(sortedByArrival) if smallest == element.A]
-
-					if len(all_smallest) == 1:
-						processToRun = all_smallest[0]
-					else:
-						# favoring the process that is listed earliest in the input.
-						sortedByInput = sorted(subList, key=lambda x: x.I, reverse=False)
-						processToRun = sortedByInput[0]
-
-				if len(self.states['running']) == 0:					
-					self.updateState(processToRun, 'running')
-					PROCESSES.append(processToRun)
-
 
 			# -------------------- UNSTARTED PROCESSE --------------------- #		
 
@@ -306,20 +267,56 @@ class Scheduler:
 						else:
 							self.updateState(process, 'ready')
 						PROCESSES.append(process)
+			# -------------------- READY PROCESSES --------------------- #		
+
+			# If a process is in ready state 
+				# increment the waitingtime of the process
+				# if the running is empty put the process X in the running state
+				# Finding process X:
+					# first one in the queue if its arrival time in the ready state is unique and earliest
+					# if more than one processes arrived at the same time, use tie breaker
+
+			# Break Ties
+				# These ties are broken
+				# by favoring the process with the earliest arrival time A. 
+				# If the arrival times are the same for two processes with the same priority, 
+				# then favor the process that is listed earliest in the input. 
+
+			self.cleanReady()
+			if (self.states['ready']):
+				# TODO: update waiting time
+				processToRun = None
+
+				to_pop = len(self.states['ready']) - 1
+
+					# [[p],[p,p],[p],[p]]
+				if len(self.states['ready'][to_pop]) == 1:
+					processToRun = self.states['ready'][to_pop][0]
+
+				else:
+					# [[p,p],[p],[p,p]]
+					subList = self.states['ready'][to_pop][:]
+					# favoring the process with the earliest arrival time A. 
+					sortedByArrival = sorted(subList, key=lambda x: x.A, reverse=False)
+					smallest = sortedByArrival[0].A
+					all_smallest = [element for index, element in enumerate(sortedByArrival) if smallest == element.A]
+
+					if len(all_smallest) == 1:
+						processToRun = all_smallest[0]
+					else:
+						# favoring the process that is listed earliest in the input.
+						sortedByInput = sorted(subList, key=lambda x: x.I, reverse=False)
+						processToRun = sortedByInput[0]
+
+				if len(self.states['running']) == 0:					
+					self.updateState(processToRun, 'running')
+					PROCESSES.append(processToRun)
 
 
 			# -------------------- COLLECTION LOGS FOR EACH INSTANCE --------------------- #
 
-			self.logs += "Before cycle    " + str(self.clock + 1) + ":"
-
-			for process in self.processTable.sortedStore:
-				if process.state == 'running':
-					burstRemaining = process.remainingBurst
-				else:
-					burstRemaining = process.IO
-
-				self.logs += " " + spaces[process.state] + process.state + "  " + str(burstRemaining)
-			self.logs += ".\n"
+			# generate logs
+			self.generateLogs()
 
 			# increment the clock after each loop
 			self.clock += 1
@@ -328,12 +325,12 @@ class Scheduler:
 			if (len(self.states['terminated']) == self.processTable.count):
 				self.active = False
 
+
 # -------------------------- FIRST COME FIRST SERVE ----------------------------
 
 	def FCFS(self):
 
 		self.logs = "\nThis detailed printout gives the state and remaining burst for each process\n\n"
-		spaces = {'unstarted':'   ', 'running':'     ','ready':'       ','blocked':'     ', 'terminated':' '}
 
 		while (self.active):
 
@@ -419,7 +416,7 @@ class Scheduler:
 
 			if (self.states['blocked']):
 
-				temp = self.states['blocked'][:]
+				temp = sorted(self.states['blocked'][:], key=lambda x: x.I, reverse=True)
 				for process in temp:
 					if process not in PROCESSES:
 						process.IO -= 1
@@ -455,16 +452,8 @@ class Scheduler:
 
 			# -------------------- COLLECTION LOGS FOR EACH INSTANCE --------------------- #
 
-			self.logs += "Before cycle    " + str(self.clock + 1) + ":"
-
-			for process in self.processTable.sortedStore:
-				if process.state == 'running':
-					burstRemaining = process.remainingBurst
-				else:
-					burstRemaining = process.IO
-
-				self.logs += " " + spaces[process.state] + process.state + "  " + str(burstRemaining)
-			self.logs += ".\n"
+			# generate logs
+			self.generateLogs()
 
 			# increment the clock after each loop
 			self.clock += 1
@@ -472,12 +461,12 @@ class Scheduler:
 			# Turn off scheduler if all processes are terminated
 			if (len(self.states['terminated']) == self.processTable.count):
 				self.active = False
+				print("The scheduling algorithm used was " + self.algoInfo[self.algorithm] + '\n')
+				
 
 
-
-processTable = ProcessTable("/Users/student/Desktop/input-3.txt");
-print(processTable.view('sorted'))
-scheduler = Scheduler(processTable,'fcfs')
+processTable = ProcessTable("/Users/student/Desktop/input-7.txt");
+scheduler = Scheduler(processTable,'lcfs')
 scheduler.init()
 print(scheduler)
 
