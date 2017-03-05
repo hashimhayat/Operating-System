@@ -22,6 +22,7 @@ class Process:
 		self.finishTime = 0
 		self.turnAroundTime = 0
 		self.waitingTime = 0
+		self.IOtime = 0
 
 	# Returns a string representation of a process
 	def __repr__(self):

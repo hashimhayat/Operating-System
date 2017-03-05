@@ -27,7 +27,15 @@ class Scheduler:
 		self.active = True 				# Indicates if the Scheduler is working or not
 		self.X = 0						# next random number
 		self.logs = self.initLogs()		# logs that are generated at the end
-		self.algoInfo = self.algoInfo()
+		self.algoInfo = self.algoInfo()	# Info about the algorithm being used <DEV / DEBUG>
+
+		# LOGGING INFO
+		self.finishTime = 0
+		self.CPUutilization = 0
+		self.IOUtilization = 0
+		self.throughput = 0
+		self.avgTurnaround = 0
+		self.avgWaitingTime = 0
 
 	# Initialises the Scheduler with the specified algorithm.
 	def init(self):
@@ -84,12 +92,25 @@ class Scheduler:
 		else:
 			self.states[prevState].remove(Process)
 
+		if prevState == 'unstarted':
+			Process.turnAroundTime = self.clock
+
 		Process.state = newState
 		Process.time = self.clock
+
+		# Terminated
+			# update finish time
+
+		if newState == 'terminated':
+			Process.finishTime = self.clock
+			Process.turnAroundTime = self.clock - Process.turnAroundTime
+			self.avgTurnaround += Process.turnAroundTime
 
 		# Running:
 			# calculate remainingburst
 		if newState == 'running':
+
+			self.CPUutilization += 1
 
 			t = self.randomOS(Process.B)
 
@@ -132,6 +153,32 @@ class Scheduler:
 		# Enqueue it in the new state list
 		self.states[newState].append(Process)
 
+	def updateWaitingTime(self):
+
+		for sub in self.states['ready']:
+			for p in sub:
+				p.waitingTime += 1
+				self.avgWaitingTime += 1
+
+	def updateIOtime(self):
+
+		if self.states['blocked']:
+			self.IOUtilization += 1
+
+		for p in self.states['blocked']:
+			p.IOtime += 1
+
+
+
+	def preparingLogOff(self):
+		self.finishTime = self.clock - 1 
+		self.avgWaitingTime = ("%.6f" % round((self.avgWaitingTime / self.processTable.count),7))
+		self.avgTurnaround = ("%.6f" % round((self.avgTurnaround / self.processTable.count),7))
+		self.IOUtilization = ("%.6f" % round((self.IOUtilization / self.finishTime),7))
+		self.CPUutilization = ("%.6f" % round((self.CPUutilization / self.finishTime),7))
+		self.throughput = ("%.6f" % round(((self.processTable.count / self.finishTime)*100),7))
+
+
 	# -------------------- Random Numbers --------------------- #
 
 	# Reads the next Random number from the file
@@ -149,29 +196,28 @@ class Scheduler:
 		return 1 + (self.getNextUDRI() % U)
 
 	# Create the Result logs. Takes the ProcessTable.
-	def createLogs(self,PT):  
+	def createLogs(self):  
+
+		PT = self.processTable
 
 		logs = "\n"
-		logs += PT.view('unsorted') + '\n' +  PT.view('sorted') + '\n\n'
-		logs += "The scheduling algorithm used was First Come First Served\n\n"
 
 		for p in range(len(PT.sortedStore)):
 
 			logs += "Process " + str(p) + ":\n"
-			logs += "  (A,B,C,M) = " + PT.sortedStore[p].__repr__() + "\n"
-			logs += "  Finishing time: " + str(PT.sortedStore[p].finishTime) + "\n"
-			logs += "  Turnaround time: " + str(PT.sortedStore[p].turnAroundTime) + "\n"
-			logs += "  I/O time time: " + str(PT.sortedStore[p].IO) + "\n"
-			logs += "  Waiting time: " + str(PT.sortedStore[p].waitingTime) + "\n\n"
+			logs += "        (A,B,C,M) = " + PT.sortedStore[p].__repr__() + "\n"
+			logs += "        Finishing time: " + str(PT.sortedStore[p].finishTime) + "\n"
+			logs += "        Turnaround time: " + str(PT.sortedStore[p].turnAroundTime) + "\n"
+			logs += "        I/O time: " + str(PT.sortedStore[p].IOtime) + "\n"
+			logs += "        Waiting time: " + str(PT.sortedStore[p].waitingTime) + "\n\n"
 
 		logs += "Summary Data:\n"
-		logs += "  Finishing time: " + "\n"
-		logs += "  CPU Utilization: " + "\n"
-		logs += "  I/O Utilization: " + "\n"
-		logs += "  Throughput: " + " processes per hundred cycles\n"
-		logs += "  Average turnaround time: " + "\n"
-		logs += "  Average waiting time: " + "\n"
-
+		logs += "        Finishing time: " + str(self.finishTime) + "\n"
+		logs += "        CPU Utilization: " + str(self.CPUutilization) + "\n"
+		logs += "        I/O Utilization: " + str(self.IOUtilization) + "\n"
+		logs += "        Throughput: " + str(self.throughput) + " processes per hundred cycles\n"
+		logs += "        Average turnaround time: " + str(self.avgTurnaround) + "\n"
+		logs += "        Average waiting time: " + str(self.avgWaitingTime) + "\n"
 		return logs
 
 	def initLogs(self):
@@ -193,7 +239,7 @@ class Scheduler:
 	# String Representation of the Scheduler
 	def __repr__(self):
 		#return self.createLogs(self.processTable)
-		return self.logs + "The scheduling algorithm used was " + self.algoInfo[self.algorithm] + '\n'
+		return self.logs + "The scheduling algorithm used was " + self.algoInfo[self.algorithm] + '\n' + self.createLogs()
 
 # -------------------------- LAST COME FIRST SERVE ----------------------------
 
@@ -315,6 +361,11 @@ class Scheduler:
 
 			# -------------------- COLLECTION LOGS FOR EACH INSTANCE --------------------- #
 
+			# Update Process Status
+
+			self.updateWaitingTime()
+			self.updateIOtime()
+
 			# generate logs
 			self.generateLogs()
 
@@ -323,6 +374,7 @@ class Scheduler:
 
 			# Turn off scheduler if all processes are terminated
 			if (len(self.states['terminated']) == self.processTable.count):
+				self.preparingLogOff()
 				self.active = False
 
 
@@ -465,7 +517,7 @@ class Scheduler:
 				
 
 
-processTable = ProcessTable("/Users/student/Desktop/input-7.txt");
+processTable = ProcessTable("/Users/student/Desktop/input-3.txt");
 scheduler = Scheduler(processTable,'lcfs')
 scheduler.init()
 print(scheduler)
