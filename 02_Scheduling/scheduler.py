@@ -35,11 +35,11 @@ class Scheduler:
 		self.initProcesses()
 
 		if self.algorithm == 'fcfs':
-			self.FSFS()
+			self.FCFS()
 		elif self.algorithm == 'roundrobin':
 			pass
-		elif self.algorithm == 'uniprogrammed':
-			pass
+		elif self.algorithm == 'lcfs':
+			self.LCFS()
 		elif self.algorithm == 'sjf':
 			pass
 		else:
@@ -183,7 +183,154 @@ class Scheduler:
 		#return self.createLogs(self.processTable)
 		return self.logs
 
-	def FSFS(self):
+# -------------------------- LAST COME FIRST SERVE ----------------------------
+
+	def LCFS(self):
+
+		self.logs = "\nThis detailed printout gives the state and remaining burst for each process \nLCFS\n"
+		spaces = {'unstarted':'   ', 'running':'     ','ready':'       ','blocked':'     ', 'terminated':' '}
+
+		while (self.active):
+
+			# Algorithm goes here.
+
+			# A list of processes that have been updated in this cycle
+			# ensures that a process only changes its state once per cycle
+			PROCESSES = []
+
+			# -------------------- RUNNING PROCESSE --------------------- #			
+
+			# if a process is in running state
+				# decrement its remaining burst by 1
+				# put it in blocked state if its remaining burst is 0 
+				# decrement the total CPU time
+				# put it in terminate state if CPU time is over
+
+			if (self.states['running']):
+
+				# FIX REMAINING BURST
+				process = self.states['running'][0]
+				process.remainingBurst -= 1
+				process.remainingCPU -= 1
+
+				if process.remainingCPU <= 0:	
+					self.updateState(process, 'terminated')
+
+				elif process.remainingBurst == 0:
+					self.updateState(process, 'blocked')
+				PROCESSES.append(process)
+
+			# -------------------- BLOCKED PROCESSES --------------------- #		
+
+			# if a process is in blocked state
+				# decrement its remaining IO
+				# if IO is 0 put it in ready state
+
+			if (self.states['blocked']):
+
+				#temp = sorted(self.states['blocked'][:], key=lambda x: x, reverse=True)
+				temp = self.states['blocked'][:]
+				for process in temp:
+					if process not in PROCESSES:
+						process.IO -= 1
+
+						if process.IO == 0:
+							if len(self.states['running']) == 0:
+								self.updateState(process, 'running')
+							else:
+								self.updateState(process, 'ready')
+							PROCESSES.append(process)
+
+			# -------------------- READY PROCESSES --------------------- #		
+
+			# If a process is in ready state 
+				# increment the waitingtime of the process
+				# if the running is empty put the process X in the running state
+				# Finding process X:
+					# first one in the queue if its arrival time in the ready state is unique and earliest
+					# if more than one processes arrived at the same time, use tie breaker
+
+			# Break Ties
+				# These ties are broken
+				# by favoring the process with the earliest arrival time A. 
+				# If the arrival times are the same for two processes with the same priority, 
+				# then favor the process that is listed earliest in the input. 
+
+			if (self.states['ready']):
+				# TODO: update waiting time
+
+				processToRun = None
+
+				to_pop = len(self.states['ready']) - 1
+
+					# [[p],[p,p],[p],[p]]
+				if len(self.states['ready'][to_pop]) == 1:
+					processToRun = self.states['ready'][to_pop][0]
+
+				else:
+					# [[p,p],[p],[p,p]]
+					subList = self.states['ready'][to_pop][:]
+
+					# favoring the process with the earliest arrival time A. 
+					sortedByArrival = sorted(subList, key=lambda x: x.A, reverse=False)
+					smallest = sortedByArrival[0].A
+					all_smallest = [element for index, element in enumerate(sortedByArrival) if smallest == element.A]
+
+					if len(all_smallest) == 1:
+						processToRun = all_smallest[0]
+					else:
+						# favoring the process that is listed earliest in the input.
+						sortedByInput = sorted(subList, key=lambda x: x.I, reverse=False)
+						processToRun = sortedByInput[0]
+
+				if len(self.states['running']) == 0:					
+					self.updateState(processToRun, 'running')
+					PROCESSES.append(processToRun)
+
+
+			# -------------------- UNSTARTED PROCESSE --------------------- #		
+
+			# if there are processes in the "unstarted" state
+				# check the arival time of the all processes in the unstarted queue 
+				# put the process in the running state if:
+				# process arrival time has come 
+				# if there is no other process in the running state put in running
+				# else put in ready
+
+			if (self.states['unstarted']):
+				temp = self.states['unstarted'][:]
+				for process in temp:
+					if process.A == self.clock:
+						if len(self.states['running']) == 0:
+							self.updateState(process, 'running')
+						else:
+							self.updateState(process, 'ready')
+						PROCESSES.append(process)
+
+
+			# -------------------- COLLECTION LOGS FOR EACH INSTANCE --------------------- #
+
+			self.logs += "Before cycle    " + str(self.clock + 1) + ":"
+
+			for process in self.processTable.sortedStore:
+				if process.state == 'running':
+					burstRemaining = process.remainingBurst
+				else:
+					burstRemaining = process.IO
+
+				self.logs += " " + spaces[process.state] + process.state + "  " + str(burstRemaining)
+			self.logs += ".\n"
+
+			# increment the clock after each loop
+			self.clock += 1
+
+			# Turn off scheduler if all processes are terminated
+			if (len(self.states['terminated']) == self.processTable.count):
+				self.active = False
+
+# -------------------------- FIRST COME FIRST SERVE ----------------------------
+
+	def FCFS(self):
 
 		self.logs = "\nThis detailed printout gives the state and remaining burst for each process\n\n"
 		spaces = {'unstarted':'   ', 'running':'     ','ready':'       ','blocked':'     ', 'terminated':' '}
@@ -235,6 +382,8 @@ class Scheduler:
 
 			if (self.states['ready']):
 
+				# TODO: update waiting time
+
 				processToRun = None
 
 					# [[p],[p,p],[p],[p]]
@@ -270,7 +419,7 @@ class Scheduler:
 
 			if (self.states['blocked']):
 
-				temp = sorted(self.states['blocked'][:], key=lambda x: x.A, reverse=False)
+				temp = self.states['blocked'][:]
 				for process in temp:
 					if process not in PROCESSES:
 						process.IO -= 1
@@ -281,6 +430,8 @@ class Scheduler:
 							else:
 								self.updateState(process, 'ready')
 							PROCESSES.append(process)
+							
+
 
 			# -------------------- UNSTARTED PROCESSE --------------------- #		
 
@@ -323,9 +474,10 @@ class Scheduler:
 				self.active = False
 
 
-processTable = ProcessTable("/Users/student/Desktop/input-5.txt");
+
+processTable = ProcessTable("/Users/student/Desktop/input-3.txt");
 print(processTable.view('sorted'))
-scheduler = Scheduler(processTable)
+scheduler = Scheduler(processTable,'fcfs')
 scheduler.init()
 print(scheduler)
 
