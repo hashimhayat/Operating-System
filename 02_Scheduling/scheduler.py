@@ -7,7 +7,6 @@ Main: Scheduler
 import copy
 from processhandler import *
 
-
 class Scheduler:
 
 	def __init__(self, processTable):
@@ -28,6 +27,8 @@ class Scheduler:
 		self.X = 0						# next random number
 		self.logs = self.initLogs()		# logs that are generated at the end
 		self.algoInfo = self.algoInfo()	# Info about the algorithm being used <DEV / DEBUG>
+		self.quantum = 0				# Quantum of the scheduler
+		self.didNotTakeBurst = False
 
 		# LOGGING INFO
 		self.finishTime = 0
@@ -37,8 +38,11 @@ class Scheduler:
 		self.avgTurnaround = 0
 		self.avgWaitingTime = 0
 
+		# DEBUG
+		self.verbose = True
+
 	# Initialises the Scheduler with the specified algorithm.
-	def init(self,algo):
+	def init(self,algo,q=2):
 
 		self.algorithm = algo
 		# Put all processes in the unstarted state
@@ -47,7 +51,8 @@ class Scheduler:
 		if self.algorithm == 'fcfs':
 			self.FCFS()
 		elif self.algorithm == 'roundrobin':
-			pass
+			self.quantum = q
+			self.roundRobin()
 		elif self.algorithm == 'lcfs':
 			self.LCFS()
 		elif self.algorithm == 'sjf':
@@ -82,7 +87,6 @@ class Scheduler:
 
 		# Remove the process from old state
 		if prevState == 'ready':
-
 			for sub in self.states['ready']:
 				for p in range(len(sub)):
 					if Process == sub[p]:
@@ -90,7 +94,7 @@ class Scheduler:
 						break
 			self.cleanReady()
 			
-		else:
+		if prevState != 'ready':
 			self.states[prevState].remove(Process)
 
 		if prevState == 'unstarted':
@@ -101,31 +105,46 @@ class Scheduler:
 
 		# Terminated
 			# update finish time
-
 		if newState == 'terminated':
 			Process.finishTime = self.clock
 			Process.turnAroundTime = self.clock - Process.turnAroundTime
 			self.avgTurnaround += Process.turnAroundTime
-
+			
 		# Running:
 			# calculate remainingburst
 		if newState == 'running':
 
-			self.CPUutilization += 1
+			if Process.remainingBurst <= 0:
+				#if not self.blocked:
+				t,rand = self.randomOS(Process.B)
+				self.CPUutilization += 1
 
-			t = self.randomOS(Process.B)
-
-			# If t, the value returned by randomOS(), is larger than the total CPU
-			# time remaining, set t to the remaining time.
-
-			if t > Process.remainingCPU:
-				t = Process.remainingCPU
-			Process.remainingBurst = t
+				if t > Process.remainingCPU:
+					t = Process.remainingCPU
+				Process.remainingBurst = t
+				Process.preempted = False
+ 				
+				if self.verbose:
+					self.logs += 'Find burst when choosing ready process to run ' + str(rand) + '\n'
+			else:
+				Process.preempted = True
 
 		# Blocked:
 			# calculate remaining IO
 		if newState == 'blocked':
-			Process.IO = self.randomOS(Process.M)
+			Process.IO,rand = self.randomOS(Process.M)
+			
+			if self.verbose:
+				self.logs += 'Find I/O burst when blocking a process ' + str(rand) + '\n'
+			self.blocked = True
+
+		if newState == 'running':
+			if self.algorithm == 'roundrobin':
+				Process.Q = self.quantum
+
+		if newState == 'running' and prevState == 'blocked':
+			if self.algorithm == 'roundrobin':
+				Process.Q = self.quantum
 
 		# Arrival:
 			# Create a priority queue:
@@ -135,17 +154,10 @@ class Scheduler:
 		if newState == 'ready':
 
 			if self.states['ready']:
-
-				# last element in the ready list [[t=34],[t=35],[t=45X]]
-				l = len(self.states['ready']) - 1
-				# time of the sub list
-				time = self.states['ready'][l][0].time
-
-				if Process.time == time:
-					self.states['ready'][l].append(Process)
-				else:
-					self.states['ready'].append([Process])
-
+				l = len(self.states['ready']) - 1 			# last element in the ready list [[t=34],[t=35],[t=45X]]
+				time = self.states['ready'][l][0].time		# time of the sub list
+				self.states['ready'][l].append(Process) if Process.time == time else self.states['ready'].append([Process])
+					
 			else:
 				self.states['ready'].append([Process])
 
@@ -172,11 +184,11 @@ class Scheduler:
 
 	def preparingLogOff(self):
 		self.finishTime = self.clock - 1 
-		self.avgWaitingTime = ("%.6f" % round((self.avgWaitingTime / self.processTable.count),7))
-		self.avgTurnaround = ("%.6f" % round((self.avgTurnaround / self.processTable.count),7))
-		self.IOUtilization = ("%.6f" % round((self.IOUtilization / self.finishTime),7))
-		self.CPUutilization = ("%.6f" % round((self.CPUutilization / self.finishTime),7))
-		self.throughput = ("%.6f" % round(((self.processTable.count / self.finishTime)*100),7))
+		self.avgWaitingTime = ("%.6f" % (self.avgWaitingTime / self.processTable.count))
+		self.avgTurnaround = ("%.6f" % (self.avgTurnaround / self.processTable.count))
+		self.IOUtilization = ("%.6f" % (self.IOUtilization / self.finishTime))
+		self.CPUutilization = ("%.6f" % (self.CPUutilization / self.finishTime))
+		self.throughput = ("%.6f" % ((self.processTable.count / self.finishTime)*100))
 		print(self)
 
 
@@ -194,7 +206,8 @@ class Scheduler:
 	# The simple function randomOS(U) reads a random non-negative integer 
 	# X from a file named random-numbers (in the current directory) and returns the value 1 + (X mod U).
 	def randomOS(self,U):
-		return 1 + (self.getNextUDRI() % U)
+		rand = self.getNextUDRI()
+		return 1 + (rand % U), rand
 
 	# Create the Result logs. Takes the ProcessTable.
 	def createLogs(self):  
@@ -226,10 +239,12 @@ class Scheduler:
 		logs += "\nThis detailed printout gives the state and remaining burst for each process \n\n"
 		return logs
 
-	def generateLogs(self):
+	def generateLogs(self): 
 		self.logs += "Before cycle " + ' '* (4 - len(str(self.clock + 1))) + str(self.clock + 1) + ': '
+
 		for process in self.processTable.sortedStore:
-			burstRemaining = process.remainingBurst if process.state == 'running' else process.IO
+			remainingTime = process.Q if self.algorithm == 'roundrobin' else process.remainingBurst 
+			burstRemaining = remainingTime if process.state == 'running' else process.IO
 			self.logs += ' ' * (11 - len(process.state)) + process.state + '  ' + str(burstRemaining)
 		self.logs += '.\n'
 
@@ -241,6 +256,163 @@ class Scheduler:
 	def __repr__(self):
 		#return self.createLogs(self.processTable)
 		return self.logs + "The scheduling algorithm used was " + self.algoInfo[self.algorithm] + '\n' + self.createLogs()
+
+# ------------------------------- ROUND ROBIN ---------------------------------
+
+	def roundRobin(self):
+	
+		while (self.active):
+
+			# Algorithm goes here.
+
+			# A list of processes that have been updated in this cycle
+			# ensures that a process only changes its state once per cycle
+			PROCESSES = []
+
+
+			# -------------------- RUNNING PROCESSE --------------------- #			
+
+			# if a process is in running state
+				# decrement its remaining burst by 1
+				# put it in blocked state if its remaining burst is 0 
+				# decrement the total CPU time
+				# put it in terminate state if CPU time is over
+
+			if (self.states['running']):		
+
+				process = self.states['running'][0]
+
+				if self.clock == 1743:
+					self.DEBUG = str(process) + str(process.Q) + ' ' + str(process.remainingBurst)
+
+				process.remainingBurst -= 1
+				process.remainingCPU -= 1
+				process.Q -= 1
+
+				if process.remainingCPU <= 0:	
+					self.updateState(process, 'terminated')
+
+				elif process.remainingBurst == 0:
+					self.updateState(process, 'blocked')
+			
+				elif process.Q == 0:
+					self.updateState(process, 'ready')
+
+				PROCESSES.append(process)
+
+
+			# -------------------- READY PROCESSES --------------------- #		
+
+			# If a process is in ready state 
+				# increment the waitingtime of the process
+				# if the running is empty put the process X in the running state
+				# Finding process X:
+					# first one in the queue if its arrival time in the ready state is unique and earliest
+					# if more than one processes arrived at the same time, use tie breaker
+
+			# Break Ties
+				# These ties are broken
+				# by favoring the process with the earliest arrival time A. 
+				# If the arrival times are the same for two processes with the same priority, 
+				# then favor the process that is listed earliest in the input. 
+
+			if (self.states['ready']):
+
+				# TODO: update waiting time
+
+				processToRun = None
+
+					# [[p],[p,p],[p],[p]]
+				if len(self.states['ready'][0]) == 1:
+					processToRun = self.states['ready'][0][0]
+
+				else:
+					# [[p,p],[p],[p]]
+					subList = self.states['ready'][0][:]
+
+					# favoring the process with the earliest arrival time A. 
+					sortedByArrival = sorted(subList, key=lambda x: x.A, reverse=False)
+					smallest = sortedByArrival[0].A
+					all_smallest = [element for index, element in enumerate(sortedByArrival) if smallest == element.A]
+
+					if len(all_smallest) == 1:
+						processToRun = all_smallest[0]
+					else:
+						# favoring the process that is listed earliest in the input.
+						sortedByInput = sorted(subList, key=lambda x: x.I, reverse=False)
+						processToRun = sortedByInput[0]
+
+				if len(self.states['running']) == 0 and processToRun not in PROCESSES:		
+					self.updateState(processToRun, 'running')
+					PROCESSES.append(processToRun)
+
+			# -------------------- BLOCKED PROCESSES --------------------- #		
+
+			# if a process is in blocked state
+				# decrement its remaining IO
+				# if IO is 0 put it in ready state
+
+			if (self.states['blocked']):
+
+				# block list is sorted in reverse order of its incoming time
+				#temp = sorted(self.states['blocked'][:], key=lambda x: x.I, reverse=True)
+				temp = self.states['blocked'][:]
+				for process in temp:
+					if process not in PROCESSES:
+						process.IO -= 1
+
+						if process.IO == 0:
+							if len(self.states['running']) == 0:
+								self.updateState(process, 'running')
+							else:
+								self.updateState(process, 'ready')
+							PROCESSES.append(process)
+
+			# -------------------- UNSTARTED PROCESSE --------------------- #		
+
+			# if there are processes in the "unstarted" state
+				# check the arival time of the all processes in the unstarted queue 
+				# put the process in the running state if:
+				# process arrival time has come 
+				# if there is no other process in the running state put in running
+				# else put in ready
+
+			if (self.states['unstarted']):
+				temp = sorted(self.states['unstarted'][:], key=lambda x: x.A, reverse=True)
+				for process in temp:
+					if process.A == self.clock:
+						if len(self.states['running']) == 0:
+							self.updateState(process, 'running')
+						else:
+							self.updateState(process, 'ready')
+						PROCESSES.append(process)
+
+
+			# Ensures that atleast one process runs if it in ready list
+			if len(self.states['running']) == 0 and self.states['ready']:
+				processToRun = self.states['ready'][0][0]
+				self.updateState(processToRun, 'running')
+
+
+			# -------------------- COLLECTION LOGS FOR EACH INSTANCE --------------------- #
+
+			# Update Process Status
+
+			self.updateWaitingTime()
+			self.updateIOtime()
+
+			# generate logs
+			self.generateLogs()
+
+			# increment the clock after each loop
+			self.clock += 1
+
+			# Turn off scheduler if all processes are terminated
+			if (len(self.states['terminated']) == self.processTable.count):
+				self.preparingLogOff()
+				self.active = False
+
+
 
 # -------------------------- LAST COME FIRST SERVE ----------------------------
 
@@ -284,6 +456,7 @@ class Scheduler:
 
 			if (self.states['blocked']):
 
+				# block list is sorted in reverse order of its incoming time
 				temp = sorted(self.states['blocked'][:], key=lambda x: x.I, reverse=True)
 				for process in temp:
 					if process not in PROCESSES:
@@ -514,14 +687,15 @@ class Scheduler:
 			# Turn off scheduler if all processes are terminated
 			if (len(self.states['terminated']) == self.processTable.count):
 				self.active = False
-				print("The scheduling algorithm used was " + self.algoInfo[self.algorithm] + '\n')
+				print("\nThe scheduling algorithm used was " + self.algoInfo[self.algorithm] + '\n')
 				
 
-filePath = "/Users/student/Desktop/Input/input-3.txt"
+filePath = "/Users/student/Desktop/Input/input-1.txt"
 
 processTable = ProcessTable(filePath);
 scheduler = Scheduler(processTable)
-scheduler.init('lcfs')
+scheduler.verbose = False
+scheduler.init('roundrobin')
 
 
 

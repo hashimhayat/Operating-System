@@ -12,11 +12,12 @@ class Process:
 		self.B = B 					#-> CPU burst
 		self.C = C 					#-> Total CPU required by the job
 		self.M = M 					#-> Multiplier to find I/O burst = B x M
-		self.Q = 0					#-> Remaining Quantum
+		self.Q = 2					#-> Remaining Quantum
 		self.time = A				#-> Current time at which a process is
 		self.state = 'unstarted'	#-> State of a process
 		self.remainingBurst = 0 	#-> CPU burst left
 		self.remainingCPU = C		#-> Total CPU time remaining
+		self.preempted = False		#-> State of preemption
 
 		# Loging Times
 		self.IO = 0
