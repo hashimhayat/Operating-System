@@ -114,20 +114,31 @@ class Scheduler:
 			# calculate remainingburst
 		if newState == 'running':
 
-			if Process.remainingBurst <= 0:
-				#if not self.blocked:
+			self.CPUutilization += 1
+
+			if self.algorithm == 'roundrobin':
+
+				Process.Q = self.quantum
+
+				if Process.remainingBurst <= 0:
+					t,rand = self.randomOS(Process.B)
+
+					if t > Process.remainingCPU:
+						t = Process.remainingCPU
+					Process.remainingBurst = t
+	 				
+					if self.verbose:
+						self.logs += 'Find burst when choosing ready process to run ' + str(rand) + '\n'
+			else:
+
 				t,rand = self.randomOS(Process.B)
-				self.CPUutilization += 1
 
 				if t > Process.remainingCPU:
 					t = Process.remainingCPU
 				Process.remainingBurst = t
-				Process.preempted = False
  				
 				if self.verbose:
 					self.logs += 'Find burst when choosing ready process to run ' + str(rand) + '\n'
-			else:
-				Process.preempted = True
 
 		# Blocked:
 			# calculate remaining IO
@@ -136,15 +147,6 @@ class Scheduler:
 			
 			if self.verbose:
 				self.logs += 'Find I/O burst when blocking a process ' + str(rand) + '\n'
-			self.blocked = True
-
-		if newState == 'running':
-			if self.algorithm == 'roundrobin':
-				Process.Q = self.quantum
-
-		if newState == 'running' and prevState == 'blocked':
-			if self.algorithm == 'roundrobin':
-				Process.Q = self.quantum
 
 		# Arrival:
 			# Create a priority queue:
@@ -184,11 +186,11 @@ class Scheduler:
 
 	def preparingLogOff(self):
 		self.finishTime = self.clock - 1 
-		self.avgWaitingTime = ("%.6f" % (self.avgWaitingTime / self.processTable.count))
-		self.avgTurnaround = ("%.6f" % (self.avgTurnaround / self.processTable.count))
-		self.IOUtilization = ("%.6f" % (self.IOUtilization / self.finishTime))
-		self.CPUutilization = ("%.6f" % (self.CPUutilization / self.finishTime))
-		self.throughput = ("%.6f" % ((self.processTable.count / self.finishTime)*100))
+		self.avgWaitingTime = ("%.6f" % round((self.avgWaitingTime + 0.0 / self.processTable.count + 0.0),7))
+		self.avgTurnaround = ("%.6f" % round((self.avgTurnaround / self.processTable.count),7))
+		self.IOUtilization = ("%.6f" % round((self.IOUtilization / self.finishTime),7))
+		self.CPUutilization = ("%.6f" % round((self.CPUutilization / self.finishTime),7))
+		self.throughput = ("%.6f" % round(((self.processTable.count / self.finishTime)*100),7))
 		print(self)
 
 
@@ -281,10 +283,6 @@ class Scheduler:
 			if (self.states['running']):		
 
 				process = self.states['running'][0]
-
-				if self.clock == 1743:
-					self.DEBUG = str(process) + str(process.Q) + ' ' + str(process.remainingBurst)
-
 				process.remainingBurst -= 1
 				process.remainingCPU -= 1
 				process.Q -= 1
@@ -457,7 +455,7 @@ class Scheduler:
 			if (self.states['blocked']):
 
 				# block list is sorted in reverse order of its incoming time
-				temp = sorted(self.states['blocked'][:], key=lambda x: x.I, reverse=True)
+				temp = sorted(self.states['blocked'][:], key=lambda x: x.I, reverse=False)
 				for process in temp:
 					if process not in PROCESSES:
 						process.IO -= 1
@@ -642,7 +640,7 @@ class Scheduler:
 
 			if (self.states['blocked']):
 
-				temp = sorted(self.states['blocked'][:], key=lambda x: x.I, reverse=True)
+				temp = sorted(self.states['blocked'][:], key=lambda x: x.A, reverse=False)
 				for process in temp:
 					if process not in PROCESSES:
 						process.IO -= 1
@@ -678,6 +676,11 @@ class Scheduler:
 
 			# -------------------- COLLECTION LOGS FOR EACH INSTANCE --------------------- #
 
+			# Update Process Status
+
+			self.updateWaitingTime()
+			self.updateIOtime()
+
 			# generate logs
 			self.generateLogs()
 
@@ -686,16 +689,15 @@ class Scheduler:
 
 			# Turn off scheduler if all processes are terminated
 			if (len(self.states['terminated']) == self.processTable.count):
-				self.active = False
-				print("\nThe scheduling algorithm used was " + self.algoInfo[self.algorithm] + '\n')
-				
+				self.preparingLogOff()
+				self.active = False		
 
-filePath = "/Users/student/Desktop/Input/input-1.txt"
+filePath = "/Users/student/Desktop/Input/input-6.txt"
 
 processTable = ProcessTable(filePath);
 scheduler = Scheduler(processTable)
 scheduler.verbose = False
-scheduler.init('roundrobin')
+scheduler.init('lcfs')
 
 
 
