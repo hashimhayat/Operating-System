@@ -6,5 +6,5 @@
 In order to test my scheduler implementation perform the following steps:
 
  1. Go to the src directory.
- 2. Use the *javac Linker.java* to compile the source.
- 3. To run the program with test cases, use: *java Linker testfile.txt*. e.g *Java Linker input-1.txt*
+ 2. To run the program with test cases, use: *python3 scheduler.py path_of_test_file.txt*. 
+ 3. To run the program with test cases and detailed output, use: *python3 scheduler.py --verbose path_of_test_file.txt*. 
