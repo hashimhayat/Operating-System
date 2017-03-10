@@ -671,6 +671,8 @@ class Scheduler:
 
 			if (self.states['blocked']):
 
+				toRun = []
+
 				# block list is sorted in reverse order of its incoming time
 				temp = sorted(self.states['blocked'][:], key=lambda x: x.I, reverse=False)
 				for process in temp:
@@ -678,11 +680,18 @@ class Scheduler:
 						process.IO -= 1
 
 						if process.IO == 0:
-							if len(self.states['running']) == 0:
-								self.updateState(process, 'running')
-							else:
-								self.updateState(process, 'ready')
+							toRun.append(process)
 							PROCESSES.append(process)
+
+				toRun = sorted(toRun, key=lambda x: x.A, reverse=False)
+
+				for process in toRun:
+
+					if len(self.states['running']) == 0:
+						self.updateState(process, 'running')
+					else:
+						self.updateState(process, 'ready')
+
 
 			# -------------------- UNSTARTED PROCESSE --------------------- #		
 
@@ -921,10 +930,14 @@ if sys.argv:
 			verbose = True
 
 processTable = ProcessTable(path);
-scheduler = Scheduler(processTable)
-scheduler.verbose = verbose
-scheduler.details = False
-scheduler.launch('fcfs')
+
+algos = ['fcfs','lcfs','roundrobin','psjf']
+
+for a in algos:
+	scheduler = Scheduler(processTable)
+	scheduler.verbose = verbose
+	scheduler.details = False
+	scheduler.launch(a)
 
 
 
