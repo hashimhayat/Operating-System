@@ -90,7 +90,26 @@ class ProcessTable:
 
 		return result
 
-		
+# Contains processes with the same remainingCPU
+# used for psjf algorithm
+class rCPUcontainer:
+	def __init__(self,remainingCPU,process):
+		self.rCPU = remainingCPU
+		self.processes = []
+		self.addProcess(process)
+
+	def addProcess(self,process):
+		self.processes.append(process)
+
+	def length(self):
+		return len(self.processes)
+
+	def getList(self):
+		return self.processes
+
+
+
+
 
 
 
