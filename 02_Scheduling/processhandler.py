@@ -43,11 +43,32 @@ class ProcessTable:
 
 	def readFile(self,filePath):
 		fd = open(filePath,'r')
-		content = fd.read().strip().replace('   ','-').replace('  ','-').split('-')
+		raw = ' '.join(fd.read().split())
+		content = self.clean(raw)
 		self.count = int(content[0])
 		self.buildStore(content,self.count)
 		
 		fd.close()
+
+	def clean(self, raw):
+		clean = []
+		clean.append(raw[0])
+		raw = raw[1:].split()
+
+		c = 0
+		tmp = ''
+		for n in raw:
+			if n.isdigit(): 
+				tmp += n + ' '
+				c += 1
+				if c == 4:
+					tmp = tmp[:-1]
+					clean.append(tmp)
+					tmp = ''
+					c = 0
+
+		print(clean)
+		return clean
 
 	# Parse the raw data and returns process objects
 
