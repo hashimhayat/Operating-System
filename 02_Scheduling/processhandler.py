@@ -4,6 +4,7 @@ Created by Hashim Hayat
 Module: File Handler
 '''
 import os
+import re
 
 class Process:
 	def __init__(self,A,B,C,M):
@@ -43,8 +44,7 @@ class ProcessTable:
 
 	def readFile(self,filePath):
 		fd = open(filePath,'r')
-		raw = ' '.join(fd.read().split())
-		content = self.clean(raw)
+		content = re.sub('[ \t]{2,}','-',fd.read().strip()).split('-')
 		self.count = int(content[0])
 		self.buildStore(content,self.count)
 		
